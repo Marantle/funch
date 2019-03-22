@@ -9,3 +9,8 @@ jspm_packages
 src/secret/*.js
 src/secret/*.ts
 deploy.out
+.vscode
+.webpack
+lib
+
+*.jar

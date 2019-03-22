@@ -10,6 +10,7 @@ const reactCurry = msgBody => emoji =>
   })
 
 export default async (channelId: string, timestamp: string): Promise<void> => {
+  console.log('reacting to message')
   const msgBody: ReactionsAddArguments = {
     channel: channelId,
     timestamp: timestamp,
