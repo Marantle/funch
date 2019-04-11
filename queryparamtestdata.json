@@ -1,0 +1,7 @@
+{
+  "queryStringParameters": {
+    "query": {
+      "firstName": "Marko"
+    }
+  }
+}

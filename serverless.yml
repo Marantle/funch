@@ -14,6 +14,12 @@
 #     webpackConfig: ./webpack.config.js
 #     includeModules: true
 
+# this was needed for webpack not to try to parse python files
+# custom:
+#   webpack:
+#     includeModules:
+#       forceExclude:
+#         - python
 
 # Welcome to Serverless!
 #
@@ -40,8 +46,29 @@ plugins:
 
 provider:
   name: aws
+  stage: ${opt:stage, 'dev'}
   runtime: nodejs8.10
   region: eu-north-1
+  environment:
+    CANDIDATE_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+    CANDIDATE_EMAIL_TABLE: "candidate-email-${opt:stage, self:provider.stage}"
+    STAGE: ${opt:stage, self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:eu-north-*"
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+        - lambda:InvokeAsync
+      Resource: "arn:aws:lambda:eu-north-1*"
 
 # you can overwrite defaults here
 #  stage: dev
@@ -76,13 +103,58 @@ provider:
 #    - exclude-me.js
 #    - exclude-me-dir/**
 
+include:
+  - ./bin/**
+
 functions:
   slash:
     handler: src/slash/handler.slash
+    memorySize: 128
     events:
       - http: GET slash
       - http: POST slash
+  slashinterceptor:
+    handler: src/slashinterceptor/handler.slashinterceptor
+    memorySize: 256
+    events:
+      - http: GET slashinterceptor
+      - http: POST slashinterceptor
+  # candidateSubmission:
+  #   handler: src/candidate/api/candidate.submit
+  #   memorySize: 128
 
+  #   description: Submit candidate information and starts interview process.
+  #   events:
+  #     - http:
+  #         path: candidates
+  #         method: POST
+  # listCandidates:
+  #   handler: src/candidate/api/candidate.list
+  #   memorySize: 128
+  #   description: List all candidates
+  #   events:
+  #     - http: 
+  #         path: candidates
+  #         method: get  
+  # candidateDetails:
+  #   handler: src/candidate/api/candidate.get
+  #   events:
+  #     - http:
+  #         path: candidates/{id}
+  #         method: get
+  # pythongreet:
+  #   runtime: python3.6
+  #   handler: python/handler.pythongreet
+  #   events:
+  #     - http:
+  #         method: get
+  #         path: pythongreet
+  # time:
+  #   events:
+  #     - http:
+  #         method: get
+  #         path: time
+  #   handler: src/util/time.timestamp
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -136,3 +208,37 @@ functions:
 #   - ${file(resources/api-gateway-errors.yml)}
 #   # DynamoDB
 #   - ${file(resources/dynamodb-table.yml)}
+resources:
+  Resources:
+    CandidatesDynamoDbTable:
+      Type: "AWS::DynamoDB::Table"
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: "NEW_AND_OLD_IMAGES"
+        TableName: "${self:provider.environment.CANDIDATE_TABLE}"
+    CandidatesemailDynamoDbTable:
+      Type: "AWS::DynamoDB::Table"
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: "id"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "id"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        StreamSpecification:
+          StreamViewType: "NEW_AND_OLD_IMAGES"
+        TableName: "${self:provider.environment.CANDIDATE_EMAIL_TABLE}"
